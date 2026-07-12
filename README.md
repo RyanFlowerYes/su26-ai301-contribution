@@ -4,7 +4,7 @@
 **Contribution Number:** 2
 **Student:** Ryan Ouardaoui 
 **Issue:** https://github.com/truera/trulens/issues/2403
-**Status:** Phase I  Complete
+**Status:** Phase II  Complete
 
 ---
 
@@ -19,39 +19,39 @@ More precisely, I believe that this issue will help me grow as an AI engineer as
 
 ### Problem Description
 
-[In your own words, what's broken or missing?]
+The Gemini provider currently has no multimodal support. TruLens only handles text inputs, so files such as images, audio, video, or documents cannot be included in evaluations.
 
 ### Expected Behavior
 
-[What should happen?]
+The Google provider should accept media files with a valid MIME type and pass them to Gemini together with text input.
+
+Existing text-only behavior should remain unchanged.
 
 ### Current Behavior
 
-[What actually happens?]
+There is no supported file input format or provider endpoint for sending multimodal content to Gemini.
+
 
 ### Affected Components
 
-[Which parts of the codebase are involved?]
-
+This mainly affects the Google Gemini provider and its request-building logic.
 ---
 
 ## Reproduction Process
 
 ### Environment Setup
 
-[Notes on setting up your local development environment - challenges you faced, how you solved them]
+The environment needed to be the same as the one on the main branch. 
 
 ### Steps to Reproduce
 
-1. [Step 1]
-2. [Step 2]
-3. [Observed result]
+Not applicable. This is a missing feature rather than a bug.
 
 ### Reproduction Evidence
 
-- **Commit showing reproduction:** [Link to commit in your fork]
+- **Commit showing reproduction:** https://github.com/RyanFlowerYes/trulens/tree/google-multimodal-support
 - **Screenshots/logs:** [If applicable]
-- **My findings:** [What you discovered during reproduction]
+- **My findings:** The current provider only supports text input.
 
 ---
 
@@ -59,30 +59,51 @@ More precisely, I believe that this issue will help me grow as an AI engineer as
 
 ### Analysis
 
-[Your analysis of the root cause - what's causing the issue?]
+Gemini supports multimodal requests through structured content parts, but the current Google provider only accepts text.
+
+The solution must add file handling while keeping existing text requests backward compatible.
 
 ### Proposed Solution
 
-[High-level description of your fix approach]
+Extend the Google provider to accept structured inputs containing:
+
+Text
+File data
+A valid MIME type
+
+Convert these inputs into Gemini-compatible content parts and send them through the existing endpoint flow.
 
 ### Implementation Plan
 
 Using UMPIRE framework (adapted):
 
-**Understand:** [Restate the problem]
+**Understand:** Add multimodal support to the Gemini provider without breaking text-only requests.
 
-**Match:** [What similar patterns/solutions exist in the codebase?]
+**Match:** Follow the existing Google provider, endpoint, and input-normalization patterns.
 
-**Plan:** [Step-by-step implementation plan]
-1. [Modify file X to do Y]
-2. [Add function Z]
-3. [Update tests]
+**Plan:** 
+Add support for text and media content parts.
+Validate file data and MIME types.
+Convert inputs into Gemini-compatible request content.
+Pass requests through the existing Google endpoint.
+Add tests for valid and invalid multimodal inputs.
+Update documentation with an example.
+**Implement:** https://github.com/RyanFlowerYes/trulens/tree/google-multimodal-support
 
-**Implement:** [Link to your branch/commits as you work]
+**Review:** 
+Text-only requests still work
 
-**Review:** [Self-review checklist - does it follow the project's contribution guidelines?]
+MIME types are validated
 
-**Evaluate:** [How will you verify it works?]
+Errors are clear
+
+Tests do not require live API credentials
+
+No unrelated dependency changes
+
+Linting and tests pass
+
+**Evaluate:** Verify that text and media files are correctly passed to Gemini and that invalid inputs fail with clear errors.
 
 ---
 
