@@ -4,7 +4,7 @@
 **Contribution Number:** 2
 **Student:** Ryan Ouardaoui 
 **Issue:** https://github.com/truera/trulens/issues/2403
-**Status:** Phase II  Complete
+**Status:** Phase IV  incomplete
 
 ---
 
@@ -109,46 +109,163 @@ Linting and tests pass
 
 ## Testing Strategy
 
+All tests live in `tests/unit/test_google_multimodal.py` and run without live Google credentials. The Gemini SDK constructors (`types.Part.from_text`, `types.Part.from_bytes`, `types.Content`) and `GenerateContentConfig` are mocked with `monkeypatch`, so the tests verify *my* translation logic rather than google-genai's internals. The module is guarded with `pytest.importorskip` for both `trulens.providers.google` and `google.genai`, and the classes are marked `@pytest.mark.optional`.
+
 ### Unit Tests
 
-- [ ] Test case 1: [Description]
-- [ ] Test case 2: [Description]
-- [ ] Test case 3: [Description]
+**`TestGoogleMultimodalParts`** — the `_to_gemini_part` converter:
+- [x] `test_converts_string_to_text_part`: a bare `str` becomes a text part via `from_text` (and `from_bytes` is never called).
+- [x] `test_converts_text_dictionary_to_text_part`: `{"type": "text", "text": ...}` becomes a text part.
+- [x] `test_converts_media_dictionary_to_bytes_part`: `{"type": "media", "data": <bytes>, "mime_type": ...}` becomes a bytes part via `from_bytes`.
+- [x] `test_media_requires_explicit_mime_type`: a media part with no `mime_type` raises `ValueError` ("require an explicit 'mime_type'").
+- [x] `test_rejects_unsupported_content_parts`: parametrized over `123`, `None`, `["text"]`, `{"type": "video"}`, `{"type": "audio", "data": ...}` — each raises `ValueError` ("Unsupported content part").
+
+**`TestGoogleMultimodalCompletion`** — end-to-end request building in `_create_chat_completion`:
+- [x] `test_builds_mixed_text_and_image_message`: a single user message mixing text + image produces the expected `contents` passed to `generate_content`.
+- [x] `test_preserves_multimodal_part_order`: text → media → text ordering is preserved in the outgoing parts.
+- [x] `test_supports_multiple_user_messages`: multiple user messages (string content + media-list content) each become their own `Content` entry.
+- [x] `test_adds_system_instruction_to_config`: a `system` message is routed into the request config, not the user parts.
+- [x] `test_uses_custom_seed`: a caller-supplied seed flows through to the config.
+- [x] `test_prompt_path_still_works`: the legacy `prompt=` path (no `messages`) still builds a valid text request — backward compatibility.
+- [x] `test_requires_prompt_or_messages`: calling with neither `prompt` nor `messages` raises `ValueError`.
+
+**`TestGoogleMultimodalStructuredOutput`**:
+- [x] `test_returns_parsed_structured_response`: when Gemini returns a parsed structured object, the provider surfaces it correctly.
 
 ### Integration Tests
 
-- [ ] Integration scenario 1
-- [ ] Integration scenario 2
+- Not included by design. The tests deliberately avoid live Gemini calls (no credentials required in CI). Real-network verification was done manually — see below.
 
 ### Manual Testing
 
-[What you tested manually and results]
+Manual testing consisted of trying to see if everything ran as intended and that the new implementation did not break previous logic.
 
 ---
 
 ## Implementation Notes
 
-### Week [X] Progress
+## Implementation Notes
 
-[What you built this week, challenges faced, decisions made]
+### Phase III Progress (implementation — commits dated Jul 11, 2026)
 
-### Week [Y] Progress
+**What I built:**
+- Added `from google.genai import types` to `provider.py`.
+- Added a new helper, `_to_gemini_part(self, part)`, that normalizes a content part into a Gemini `types.Part`:
+  - `str` → `types.Part.from_text(text=...)`
+  - `{"type": "text", "text": ...}` → text part
+  - `{"type": "media", "data": <bytes>, "mime_type": ...}` → `types.Part.from_bytes(...)`
+  - missing `mime_type` on a media part raises a clear `ValueError`
+  - anything else raises `ValueError` with a message showing the accepted shapes
+- Rewrote the user-message branch of `_create_chat_completion`: string content still maps to a single text part, while list content is mapped through `_to_gemini_part`, and the result is wrapped in a typed `types.Content(role="user", parts=parts)` instead of the old raw dict.
+- Migrated the legacy `prompt=` path to the same typed `types.Content` / `types.Part.from_text` construction so both code paths are consistent.
+- Added `tests/unit/test_google_multimodal.py` with 15 tests across 3 classes (see Testing Strategy).
 
-[Continue documenting as you work]
+**Challenges faced / decisions made:**
+- The original provider built request content as plain dicts (`{"parts": [{"text": ...}]}`). Supporting media meant switching to the SDK's typed `types.Content` / `types.Part` objects. I kept the string-content fast path so existing text-only evaluations behave identically (verified by `test_prompt_path_still_works`).
+- Biggest effort was making the tests credential-free and hermetic: I mocked `types.Part.from_text`, `types.Part.from_bytes`, and `types.Content` with `monkeypatch` so the assertions check *my* translation logic, not google-genai's internal Pydantic models. Added `pytest.importorskip` guards so the file is skipped cleanly when the optional deps aren't installed.
+- Chose to require an explicit `mime_type` on media parts (rather than guessing) and to fail fast with descriptive `ValueError`s on unsupported shapes, so misuse is caught locally instead of surfacing as an opaque SDK error.
+- Post-implementation cleanup: ran `ruff` formatting and removed unrelated dependency-file changes that had been picked up, keeping the diff scoped to the two intended files.
+
+**Commits this week:**
+- `831ec0a`: Add multi-modal support to TruLens
+- `1715fb0`: Merge branch 'truera:main' into google-multimodal-support
+- `4471f30`: ruff-format fixes
+- `6bcb718`: Remove unrelated dependency file changes
+- `4daf1d8`: ruff formatting + missing importorskip
 
 ### Code Changes
 
-- **Files modified:** [List]
-- **Key commits:** [Links to important commits]
-- **Approach decisions:** [Why you chose certain approaches]
+- **Files modified:**
+  - `src/providers/google/trulens/providers/google/provider.py` (+44 / −9)
+  - `tests/unit/test_google_multimodal.py` (new file, +425)
+- **Key commits:**
+  - `831ec0a` — core feature (`_to_gemini_part` + `_create_chat_completion` rewrite + tests): https://github.com/RyanFlowerYes/trulens/commit/831ec0a
+  - `6bcb718` — scope cleanup (drop unrelated dependency changes): https://github.com/RyanFlowerYes/trulens/commit/6bcb718
+  - `4daf1d8` — formatting + missing `importorskip`: https://github.com/RyanFlowerYes/trulens/commit/4daf1d8
+- **Approach decisions:**
+  - Typed `types.Content` / `types.Part` over raw dicts, for correctness and forward-compatibility with the Gemini SDK.
+  - Backward compatibility preserved for both the `messages=` string path and the legacy `prompt=` path.
+  - Explicit `mime_type` requirement + descriptive `ValueError`s for invalid inputs.
+  - Credential-free, mock-based unit tests marked optional and guarded by `importorskip`.
 
 ---
-
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted]
+**PR Link:** (https://github.com/truera/trulens/pull/2596)
 
-**PR Description:** [Draft or final PR description - much of the content above can be adapted]
+**PR Description:** # Description
+
+Adds multi-modal (text + image/audio/video) input support to the Google (Gemini)
+feedback provider, completing the existing `TODO` in
+`src/providers/google/trulens/providers/google/provider.py`.
+
+Previously, `Google._create_chat_completion` assumed `message["content"]` was
+always a plain string and wrapped it in a single text `Part`. There was no way to
+pass media through the provider, so users wanting multi-modal evaluations had to
+subclass `Google` and call `google_client.models.generate_content` directly,  as
+shown in `examples/expositional/models/google/gemini_multi_modal_evaluation.ipynb`.
+That workaround bypasses `self.endpoint` entirely, meaning those calls receive no
+cost tracking, token counting, or rate-limit pacing.
+
+`content` may now be either:
+
+- a `str` (unchanged behavior), or
+- a list of content parts:
+  - `"some text"`
+  - `{"type": "text", "text": str}`
+  - `{"type": "media", "data": bytes, "mime_type": str}`
+
+Media parts are converted to `types.Part.from_bytes` and cover images, audio, and
+video, any MIME type Gemini accepts. Example:
+
+```python
+provider = Google()
+result = provider._create_chat_completion(
+    messages=[{"role": "user", "content": [
+        {"type": "text", "text": "Does this restaurant have outdoor seating?"},
+        {"type": "media", "data": image_bytes, "mime_type": "image/png"},
+    ]}],
+    response_format=ImageFaithfulnessScore,
+)
+```
+
+Also added a few tests to validate my implementation in 'tests/unit/test_google_multimodal.py'. Happy to change it up based on maintainer feedback!
+
+## Other details good to know for developers
+
+- **Existing text evaluations are unaffected.** String content takes the same path
+  as before and produces an identical payload. This is explicitly covered by tests.
+- **Design decision, explicit `mime_type`.** Media parts require `mime_type`
+  rather than defaulting or inferring it. Gemini cannot decode inline bytes without
+  it, and a wrong default (e.g. assuming `image/png` for a WAV) fails in confusing
+  ways. Missing `mime_type` raises a `ValueError`.
+- **Design decision, one `media` type, not `image`.** The example notebook
+  demonstrates image, audio, and video evaluations that differ only in MIME type.
+  A single `media` part covers all three and extends to future modalities without a
+  schema change.
+- To my knowledge, there was no pre-existing multi-modal message convention anywhere in TruLens core
+  (`llm_provider.py` only ever emits `content: str`), so this schema is new. Happy
+  to align it with a different shape if maintainers prefer one.
+- `types.Content` and `types.Part` are now used consistently for both the `messages`
+  and `prompt` paths, replacing the hand-built dicts.
+
+**Follow-up (not in this PR):** inline media is limited to ~20MB per request. Larger
+files require the Gemini Files API (`client.files.upload` + `Part.from_uri`), which
+needs caching to avoid re-uploading per evaluation call and does not exist on Vertex
+AI clients. Happy to take that on in a separate PR.
+
+## Type of change
+
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [x] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to
+  not work as expected)
+- [x] New Tests
+- [ ] This change includes re-generated golden test results
+- [ ] This change requires a documentation update
+
+
+fixes #2403 
 
 **Maintainer Feedback:**
 - [Date]: [Summary of feedback received]
