@@ -4,7 +4,7 @@
 **Contribution Number:** 2
 **Student:** Ryan Ouardaoui 
 **Issue:** https://github.com/truera/trulens/issues/2403
-**Status:** Phase IV  incomplete
+**Status:** Phase IV  complete
 
 ---
 
@@ -268,10 +268,9 @@ AI clients. Happy to take that on in a separate PR.
 fixes #2403 
 
 **Maintainer Feedback:**
-- [Date]: [Summary of feedback received]
-- [Date]: [How you addressed it]
+- Feedback was fully positive
 
-**Status:** [Awaiting review / Iterating / Approved / Merged]
+**Status:** Merged.
 
 ---
 
@@ -279,21 +278,18 @@ fixes #2403
 
 ### Technical Skills Gained
 
-[What you learned technically]
+Through contributing to TruLens, I gained hands-on experience working with the Gemini SDK and integrating multimodal capabilities into an existing production codebase. A large part of the learning process involved reading and understanding the Gemini API documentation, experimenting with different models, and debugging issues related to file uploads, model availability, and response handling. I also became more comfortable navigating a mature open-source project, following contribution guidelines, and writing code that fit the project's existing architecture and testing standards.
 
 ### Challenges Overcome
 
-[What was hard and how you solved it]
+The biggest challenge was working through unfamiliar documentation while ensuring my implementation followed the project's contribution standards. The Gemini SDK was evolving, so some examples were outdated or behaved differently than expected, which required a lot of experimentation and careful reading of the documentation. I also had to adhere to the repository's coding conventions and review feedback, making sure my implementation was both technically correct and maintainable. Breaking the work into smaller steps, testing frequently, and iterating on feedback helped me successfully complete the feature.
 
 ### What I'd Do Differently Next Time
 
-[Reflection on your process]
-
+Overall, I'm happy with how the project turned out and with the quality of my contribution. If I were to do it again, I would aim to move more quickly from understanding the problem to opening a pull request. I sometimes spent extra time double-checking implementation details before sharing my work. Becoming more comfortable proposing an initial solution earlier and refining it through code review would likely make my contributions both faster and more efficient.
 ---
 
 ## Resources Used
 
-- [Link to helpful documentation]
-- [Tutorial or Stack Overflow post that helped]
-- [GitHub issues or discussions that helped]
+- (https://googleapis.github.io/python-genai/)
 # su26-ai301-contribution
